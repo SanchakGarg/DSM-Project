@@ -1,4 +1,3 @@
-
 import re
 import warnings
 import pandas as pd
@@ -6,12 +5,8 @@ from sqlalchemy import create_engine, text
 
 warnings.filterwarnings("ignore")
 
-CONN = (
-    "postgresql://neondb_owner:npg_DOF4iagbYe0E@"
-    "ep-dry-surf-a4get6nu-pooler.us-east-1.aws.neon.tech/"
-    "neondb?sslmode=require&channel_binding=require"
-)
-engine = create_engine(CONN)
+DB_PATH = "D:/Ashoka University/Academics/Spring - 2026/DSM/Project/Database.db"
+engine = create_engine(f"sqlite:///{DB_PATH}")
 BASE = "D:/Ashoka University/Academics/Spring - 2026/DSM/Project/"
 
 
@@ -21,6 +16,13 @@ def extract_year(s):
 
 def norm(s):
     return str(s).strip().lower()
+
+
+print("Dropping old tables...")
+with engine.begin() as conn:
+    for tbl in ["jjm_water", "hmis", "agriculture", "nfhs5", "nfhs4", "districts"]:
+        conn.execute(text(f"DROP TABLE IF EXISTS {tbl}"))
+print("  Done.\n")
 
 
 print("Building districts...")
@@ -43,7 +45,7 @@ districts.insert(0, "district_id", districts.index + 1)
 with engine.begin() as conn:
     conn.execute(text("""
         CREATE TABLE districts (
-            district_id SERIAL PRIMARY KEY,
+            district_id INTEGER PRIMARY KEY,
             state       TEXT NOT NULL,
             district    TEXT NOT NULL,
             UNIQUE (state, district)
@@ -330,9 +332,9 @@ print("\n== Summary ==")
 with engine.connect() as conn:
     for tbl in ["districts", "nfhs4", "nfhs5", "agriculture", "hmis", "jjm_water"]:
         rows = conn.execute(text(f"SELECT COUNT(*) FROM {tbl}")).scalar()
-        cols = conn.execute(text(
-            f"SELECT COUNT(*) FROM information_schema.columns WHERE table_name='{tbl}'"
-        )).scalar()
-        print(f"  {tbl:15s}  rows={rows:>7,}  cols={cols}")
+        ncols = len(conn.execute(text(f"PRAGMA table_info({tbl})")).fetchall())
+        print(f"  {tbl:15s}  rows={rows:>7,}  cols={ncols}")
 
+print(f"\nDatabase: {DB_PATH}")
+print("Connection string for tools: sqlite:///dsm_project.db")
 print("\nDone.")
